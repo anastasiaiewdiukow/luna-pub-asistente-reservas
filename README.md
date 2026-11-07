@@ -39,10 +39,10 @@ El ahorro de tiempo representa capacidad liberada, no necesariamente ahorro de e
 | `README.md` | Presentación, configuración, pruebas, límites y prompt |
 | `workflows/Luna_Pub_Asistente_Reservas.json` | Workflow principal |
 | `workflows/Luna_Pub_Gestionar_Solicitud_Reserva.json` | Subworkflow requerido por la herramienta |
-| `capturas/` | Evidencias de canvas, pruebas y persistencia |
+| `Capturas/` | Evidencias de canvas, pruebas y persistencia |
 | `documentacion/` | Documento ampliado de la entrega |
 
-Los nombres de las imágenes enlazadas abajo deben coincidir con los archivos subidos a `capturas/`.
+Los nombres de las imágenes enlazadas abajo deben coincidir con los archivos subidos a `Capturas/`.
 
 ## Arquitectura y uso de AI Agent
 
@@ -167,27 +167,27 @@ Se utilizaron datos ficticios. Los resultados corresponden a los casos observado
 
 ### Canvas principal
 
-![Workflow principal con memoria, herramientas y control de salida](capturas/20-workflow-principal-completo.png)
+![Workflow principal con memoria, herramientas y control de salida](Capturas/20-workflow-principal-completo.png)
 
 ### Subworkflow de solicitudes
 
-![Subworkflow de consulta, avances, registro y atención humana](capturas/12-workflow-gestion-solicitudes.png)
+![Subworkflow de consulta, avances, registro y atención humana](Capturas/12-workflow-gestion-solicitudes.png)
 
 ### Ejecución de registro
 
-![Respuesta después de registrar la solicitud de Martina](capturas/18-registro-completo-respuesta.png)
+![Respuesta después de registrar la solicitud de Martina](Capturas/18-registro-completo-respuesta.png)
 
 ### Persistencia de la solicitud
 
-![Registro de Martina pendiente de revisión en Sheets](capturas/19-registro-completo-sheets.png)
+![Registro de Martina pendiente de revisión en Sheets](Capturas/19-registro-completo-sheets.png)
 
 ### Control de atención humana
 
-![Respuesta controlada en español](capturas/27-respuesta-controlada-atencion-humana.png)
+![Respuesta controlada en español](Capturas/27-respuesta-controlada-atencion-humana.png)
 
-![Respuesta controlada en inglés](capturas/28-respuesta-controlada-ingles.png)
+![Respuesta controlada en inglés](Capturas/28-respuesta-controlada-ingles.png)
 
-Las imágenes se incorporan al repositorio en `capturas/` con estos nombres. El documento ampliado reúne la explicación y las demás evidencias.
+Las imágenes se incorporan al repositorio en `Capturas/` con estos nombres. El documento ampliado reúne la explicación y las demás evidencias.
 
 ## Limitaciones y escalabilidad
 
