@@ -1,0 +1,1194 @@
+{
+  "name": "Luna Pub - Gestionar solicitud de reserva",
+  "nodes": [
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "accion"
+            },
+            {
+              "name": "nombre"
+            },
+            {
+              "name": "contacto"
+            },
+            {
+              "name": "check_in"
+            },
+            {
+              "name": "check_out"
+            },
+            {
+              "name": "cantidad_personas",
+              "type": "number"
+            },
+            {
+              "name": "tipo_habitacion"
+            },
+            {
+              "name": "comentarios_extra"
+            },
+            {
+              "name": "estado"
+            },
+            {
+              "name": "resumen_confirmado",
+              "type": "boolean"
+            },
+            {
+              "name": "session_id"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -1040,
+        -48
+      ],
+      "id": "ab1aeb77-14de-4616-b1f4-61c33ebb330b",
+      "name": "Recibir accion y datos del agente"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "193UYyF2u9K3Zz89Oc9ee3EpT35nvbaYBYk-J4Cseuf4",
+          "mode": "list",
+          "cachedResultName": "Luna Pub - Proyecto Final",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/193UYyF2u9K3Zz89Oc9ee3EpT35nvbaYBYk-J4Cseuf4/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 253986683,
+          "mode": "list",
+          "cachedResultName": "solicitudes",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/193UYyF2u9K3Zz89Oc9ee3EpT35nvbaYBYk-J4Cseuf4/edit#gid=253986683"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "session_id",
+              "lookupValue": "={{ $json.session_id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -848,
+        -48
+      ],
+      "id": "4ff2da9e-18ce-47b2-975a-9bdb2aa41f4b",
+      "name": "Consultar solicitud actual",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "5Bkc3Re9yMevx1KT",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Leemos los datos enviados al inicio del workflow.\nconst entrada = $('Recibir accion y datos del agente').first().json;\nconst datos = { ...entrada };\nconst errores = [];\n\n// Quitamos espacios y comprobamos los campos de texto.\nconst campos = [\n  'session_id',\n  'nombre',\n  'contacto',\n  'check_in',\n  'check_out',\n  'tipo_habitacion'\n];\n\nfor (const campo of campos) {\n  datos[campo] = typeof datos[campo] === 'string'\n    ? datos[campo].trim()\n    : '';\n\n  if (!datos[campo]) {\n    errores.push(`Falta completar: ${campo}`);\n  }\n}\n\n// Comprobamos que las fechas existan y tengan formato YYYY-MM-DD.\nfunction fechaValida(texto) {\n  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(texto)) return false;\n\n  const fecha = new Date(`${texto}T00:00:00Z`);\n\n  return !Number.isNaN(fecha.getTime())\n    && fecha.toISOString().slice(0, 10) === texto;\n}\n\n// Calculamos la fecha actual en Uruguay.\nconst partes = new Intl.DateTimeFormat('en-US', {\n  timeZone: 'America/Montevideo',\n  year: 'numeric',\n  month: '2-digit',\n  day: '2-digit'\n}).formatToParts(new Date());\n\nconst parte = tipo => partes.find(p => p.type === tipo).value;\nconst hoy = `${parte('year')}-${parte('month')}-${parte('day')}`;\n\nconst entradaValida = fechaValida(datos.check_in);\nconst salidaValida = fechaValida(datos.check_out);\n\nif (!entradaValida) {\n  errores.push('La fecha de entrada no es válida.');\n}\n\nif (!salidaValida) {\n  errores.push('La fecha de salida no es válida.');\n}\n\nif (entradaValida && datos.check_in < hoy) {\n  errores.push('La fecha de entrada no puede estar en el pasado.');\n}\n\nif (entradaValida && salidaValida\n    && datos.check_out <= datos.check_in) {\n  errores.push('La salida debe ser posterior a la entrada.');\n}\n\n// La cantidad debe ser un número entero positivo.\nif (!Number.isInteger(datos.cantidad_personas)\n    || datos.cantidad_personas <= 0) {\n  errores.push('La cantidad de personas debe ser un entero positivo.');\n}\n\n// Solo admitimos los tipos de habitación definidos.\ndatos.tipo_habitacion = datos.tipo_habitacion.toLowerCase();\n\nif (!['privada', 'compartida'].includes(datos.tipo_habitacion)) {\n  errores.push('El tipo de habitación debe ser privada o compartida.');\n}\n\n// Revisamos la confirmación informada por el agente.\nif (datos.resumen_confirmado !== true) {\n  errores.push('Falta la confirmación del resumen.');\n}\n\n// Devolvemos los datos y el resultado de la revisión.\nreturn [{\n  json: {\n    ...datos,\n    solicitud_valida: errores.length === 0,\n    errores\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -432,
+        -192
+      ],
+      "id": "6aab540c-e661-4a39-a6ca-75caa16ec94b",
+      "name": "Validar solicitud completa"
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "193UYyF2u9K3Zz89Oc9ee3EpT35nvbaYBYk-J4Cseuf4",
+          "mode": "list",
+          "cachedResultName": "Luna Pub - Proyecto Final",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/193UYyF2u9K3Zz89Oc9ee3EpT35nvbaYBYk-J4Cseuf4/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 253986683,
+          "mode": "list",
+          "cachedResultName": "solicitudes",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/193UYyF2u9K3Zz89Oc9ee3EpT35nvbaYBYk-J4Cseuf4/edit#gid=253986683"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "session_id": "={{ $json.session_id }}",
+            "nombre": "={{ $json.nombre }}",
+            "contacto": "={{ $json.contacto }}",
+            "check_in": "={{ $json.check_in }}",
+            "check_out": "={{ $json.check_out }}",
+            "cantidad_personas": "={{ $json.cantidad_personas }}",
+            "tipo_habitacion": "={{ $json.tipo_habitacion }}",
+            "comentarios_extra": "={{ $json.comentarios_extra }}",
+            "estado": "pendiente_revision",
+            "id_solicitud": "={{ 'SOL-' + $json.session_id }}",
+            "fecha_registro": "={{ $('Consultar solicitud actual').first().json.fecha_registro || $now.toISO() }}"
+          },
+          "matchingColumns": [
+            "session_id"
+          ],
+          "schema": [
+            {
+              "id": "id_solicitud",
+              "displayName": "id_solicitud",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "fecha_registro",
+              "displayName": "fecha_registro",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "session_id",
+              "displayName": "session_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "nombre",
+              "displayName": "nombre",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "contacto",
+              "displayName": "contacto",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "check_in",
+              "displayName": "check_in",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "check_out",
+              "displayName": "check_out",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "cantidad_personas",
+              "displayName": "cantidad_personas",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "tipo_habitacion",
+              "displayName": "tipo_habitacion",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "comentarios_extra",
+              "displayName": "comentarios_extra",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "estado",
+              "displayName": "estado",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        16,
+        -272
+      ],
+      "id": "6e067825-d132-4b0a-8772-ed9b55b289bb",
+      "name": "Guardar solicitud pendiente de revisión",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "5Bkc3Re9yMevx1KT",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "49b6e453-de41-4eb3-b789-1d64caeee31d",
+              "name": "ok",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "id": "9622a357-2b0f-44f7-9f39-3828c6e5d988",
+              "name": "estado",
+              "value": "pendiente_revision",
+              "type": "string"
+            },
+            {
+              "id": "613990f7-f984-4834-9de9-b1fa022db9bf",
+              "name": "id_solicitud",
+              "value": "={{ $json.id_solicitud }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        240,
+        -208
+      ],
+      "id": "7b857fa5-3a4f-48ca-be55-5f4c23c00f0b",
+      "name": "Devolver resultado de registro"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "32ab91d7-df46-46f8-802e-33c192aa71e1",
+              "leftValue": "={{ $json.solicitud_valida }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -256,
+        -192
+      ],
+      "id": "a03e26a2-027b-470e-a45d-50f57b784bba",
+      "name": "¿Solicitud valida?"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "897bf245-b40e-451e-a147-3748fa6f48b7",
+              "name": "ok",
+              "value": false,
+              "type": "boolean"
+            },
+            {
+              "id": "9df45776-d470-408e-ab66-d8ac5b4ea87b",
+              "name": "errores",
+              "value": "={{ $json.errores }}",
+              "type": "array"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        0,
+        -64
+      ],
+      "id": "03bbce7e-8f53-4434-ad47-e9675d5711a7",
+      "name": "Devolver errores de validación"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "b5f30c30-e87d-4287-8d71-9997c8bbe02b",
+              "leftValue": "={{ $('Recibir accion y datos del agente').first().json.accion }}",
+              "rightValue": "consultar",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -448,
+        112
+      ],
+      "id": "1fb89d76-c301-4401-b5c3-ee084ee3ec1b",
+      "name": "¿Se solicita consultar?"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1b85b79e-93bd-4b4d-b909-ccfd09e746af",
+              "name": "encontrada",
+              "value": "={{ Boolean($json.id_solicitud) }}",
+              "type": "boolean"
+            },
+            {
+              "id": "7e8dac7f-ac30-4a76-a5c4-c26a97bb09f2",
+              "name": "solicitud",
+              "value": "={{ $json.id_solicitud ? $json : null }}",
+              "type": "object"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        -208,
+        32
+      ],
+      "id": "ee2cc82d-85b8-4b78-9702-572a7781ca3c",
+      "name": "Devolver solicitud actual"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "77f41eb2-9f00-4813-9448-06c55b787dda",
+              "leftValue": "={{ $('Recibir accion y datos del agente').first().json.accion }}",
+              "rightValue": "completar",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -656,
+        -48
+      ],
+      "id": "df4fb893-d075-4805-b071-99f7f8a7256d",
+      "name": "¿Se solicita completar la solicitud?"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "8aa59539-1452-4265-8fe7-2b1d860d330b",
+              "leftValue": "={{ $('Recibir accion y datos del agente').first().json.accion }}",
+              "rightValue": "guardar_avance",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -224,
+        208
+      ],
+      "id": "83c27c43-53b0-4d99-900b-aaa3842c1e64",
+      "name": "¿Se solicita guardar avance?"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Datos nuevos enviados por el agente.\nconst nuevos = $('Recibir accion y datos del agente').first().json;\n\n// Datos encontrados en Google Sheets, o un objeto vacío.\nconst anteriores = $('Consultar solicitud actual').first().json;\n\nconst datos = { ...anteriores };\n\n// Incorporamos únicamente los campos de la solicitud.\nconst campos = [\n  'nombre',\n  'contacto',\n  'check_in',\n  'check_out',\n  'cantidad_personas',\n  'tipo_habitacion',\n  'comentarios_extra'\n];\n\nfor (const campo of campos) {\n  const valor = nuevos[campo];\n\n  // No reemplazamos información anterior con valores vacíos.\n  if (valor === undefined || valor === null) continue;\n  if (typeof valor === 'string' && valor.trim() === '') continue;\n\n  datos[campo] = typeof valor === 'string'\n    ? valor.trim()\n    : valor;\n}\n\n// Conservamos el identificador de la conversación.\ndatos.session_id = nuevos.session_id;\n\n// Si ya tiene un código y una fecha, los conservamos.\ndatos.id_solicitud = anteriores.id_solicitud\n  || 'SOL-' + datos.session_id;\n\ndatos.fecha_registro = anteriores.fecha_registro\n  || $now.toISO();\n\n// Un avance nuevo queda en curso.\n// Si ya existía otro estado, lo conservamos.\ndatos.estado = anteriores.estado || 'en_curso';\n\nreturn [{ json: datos }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        112
+      ],
+      "id": "d0360a32-f6ef-49ba-9b3d-834684a5b31d",
+      "name": "Preparar avance de solicitud"
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "193UYyF2u9K3Zz89Oc9ee3EpT35nvbaYBYk-J4Cseuf4",
+          "mode": "list",
+          "cachedResultName": "Luna Pub - Proyecto Final",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/193UYyF2u9K3Zz89Oc9ee3EpT35nvbaYBYk-J4Cseuf4/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 253986683,
+          "mode": "list",
+          "cachedResultName": "solicitudes",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/193UYyF2u9K3Zz89Oc9ee3EpT35nvbaYBYk-J4Cseuf4/edit#gid=253986683"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "fecha_registro": "={{ $json.fecha_registro }}",
+            "id_solicitud": "={{ $json.id_solicitud }}",
+            "nombre": "={{ $json.nombre }}",
+            "check_in": "={{ $json.check_in }}",
+            "check_out": "={{ $json.check_out }}",
+            "cantidad_personas": "={{ $json.cantidad_personas }}",
+            "tipo_habitacion": "={{ $json.tipo_habitacion }}",
+            "session_id": "={{ $json.session_id }}",
+            "contacto": "={{ $json.contacto || '' }}",
+            "estado": "={{ $json.estado }}",
+            "comentarios_extra": "={{ $json.comentarios_extra || '' }}"
+          },
+          "matchingColumns": [
+            "session_id"
+          ],
+          "schema": [
+            {
+              "id": "id_solicitud",
+              "displayName": "id_solicitud",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "fecha_registro",
+              "displayName": "fecha_registro",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "session_id",
+              "displayName": "session_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "nombre",
+              "displayName": "nombre",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "contacto",
+              "displayName": "contacto",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "check_in",
+              "displayName": "check_in",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "check_out",
+              "displayName": "check_out",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "cantidad_personas",
+              "displayName": "cantidad_personas",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "tipo_habitacion",
+              "displayName": "tipo_habitacion",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "comentarios_extra",
+              "displayName": "comentarios_extra",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "estado",
+              "displayName": "estado",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        240,
+        32
+      ],
+      "id": "8e4b7a2d-4fc6-4cf7-b75f-1a7d7c4a2145",
+      "name": "Guardar avance de solicitud",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "5Bkc3Re9yMevx1KT",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "602f0841-a3cc-41ba-9963-ee899939eeb0",
+              "name": "ok",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "id": "aa8b4e1e-b9fb-454a-af0c-ebd1ea1e7ff2",
+              "name": "estado",
+              "value": "={{ $json.estado }}",
+              "type": "string"
+            },
+            {
+              "id": "661e0746-3f08-425d-81f3-3c467a1862ec",
+              "name": "id_solicitud",
+              "value": "={{ $json.id_solicitud }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        480,
+        80
+      ],
+      "id": "94ddcfb8-25ea-40b8-a0ec-7022d2ff57e2",
+      "name": "Devolver resultado de avance"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "2fa9d2fc-ab5b-4194-bffe-93a090fb0540",
+              "leftValue": "={{ $('Recibir accion y datos del agente').first().json.accion }}",
+              "rightValue": "derivar_humano",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        0,
+        304
+      ],
+      "id": "28cc04e3-f1d3-48f7-b395-234711151843",
+      "name": "¿Se solicita derivación humana?"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Datos nuevos enviados por el agente.\nconst nuevos = $('Recibir accion y datos del agente').first().json;\n\n// Datos encontrados en Google Sheets.\nconst anteriores = $('Consultar solicitud actual').first().json;\n\nconst datos = { ...anteriores };\n\n// Incorporamos los datos nuevos sin borrar los anteriores\n// cuando llega un campo vacío.\nconst campos = [\n  'nombre',\n  'contacto',\n  'check_in',\n  'check_out',\n  'cantidad_personas',\n  'tipo_habitacion',\n  'comentarios_extra'\n];\n\nfor (const campo of campos) {\n  const valor = nuevos[campo];\n\n  if (valor === undefined || valor === null) continue;\n  if (typeof valor === 'string' && valor.trim() === '') continue;\n\n  datos[campo] = typeof valor === 'string'\n    ? valor.trim()\n    : valor;\n}\n\n// Identificamos la conversación y la solicitud.\ndatos.session_id = nuevos.session_id;\n\ndatos.id_solicitud = anteriores.id_solicitud\n  || 'SOL-' + datos.session_id;\n\ndatos.fecha_registro = anteriores.fecha_registro\n  || $now.toISO();\n\n// Marcamos el caso para atención humana.\ndatos.estado = 'requiere_atencion_humana';\n\nreturn [{ json: datos }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        224
+      ],
+      "id": "6da246b4-72c6-4e26-8279-64fb32b506e5",
+      "name": "Preparar derivación humana"
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "193UYyF2u9K3Zz89Oc9ee3EpT35nvbaYBYk-J4Cseuf4",
+          "mode": "list",
+          "cachedResultName": "Luna Pub - Proyecto Final",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/193UYyF2u9K3Zz89Oc9ee3EpT35nvbaYBYk-J4Cseuf4/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 253986683,
+          "mode": "list",
+          "cachedResultName": "solicitudes",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/193UYyF2u9K3Zz89Oc9ee3EpT35nvbaYBYk-J4Cseuf4/edit#gid=253986683"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id_solicitud": "={{ $json.id_solicitud }}",
+            "session_id": "={{ $json.session_id }}",
+            "fecha_registro": "={{ $json.fecha_registro }}",
+            "nombre": "={{ $json.nombre }}",
+            "check_in": "={{ $json.check_in }}",
+            "check_out": "={{ $json.check_out }}",
+            "cantidad_personas": "={{ $json.cantidad_personas }}",
+            "tipo_habitacion": "={{ $json.tipo_habitacion }}",
+            "estado": "={{ $json.estado }}",
+            "contacto": "={{ $json.contacto }}",
+            "comentarios_extra": "={{ $json.comentarios_extra || '' }}"
+          },
+          "matchingColumns": [
+            "session_id"
+          ],
+          "schema": [
+            {
+              "id": "id_solicitud",
+              "displayName": "id_solicitud",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "fecha_registro",
+              "displayName": "fecha_registro",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "session_id",
+              "displayName": "session_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "nombre",
+              "displayName": "nombre",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "contacto",
+              "displayName": "contacto",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "check_in",
+              "displayName": "check_in",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "check_out",
+              "displayName": "check_out",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "cantidad_personas",
+              "displayName": "cantidad_personas",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "tipo_habitacion",
+              "displayName": "tipo_habitacion",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "comentarios_extra",
+              "displayName": "comentarios_extra",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "estado",
+              "displayName": "estado",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        480,
+        272
+      ],
+      "id": "287b001a-d14f-4884-abee-b940d6f4aaf4",
+      "name": "Guardar derivación humana",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "5Bkc3Re9yMevx1KT",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "3ae286c7-8c11-47a6-977d-de7d6cbc4eff",
+              "name": "ok",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "id": "3854ab50-a4a2-412d-a490-7188e3c53c76",
+              "name": "estado",
+              "value": "={{ $json.estado }}",
+              "type": "string"
+            },
+            {
+              "id": "7b02dc11-b4e0-4336-a1f3-3e3773eeeda1",
+              "name": "id_solicitud",
+              "value": "={{ $json.id_solicitud }}",
+              "type": "string"
+            },
+            {
+              "id": "6535f35a-8601-438d-881a-ba18f14d4d81",
+              "name": "mensaje",
+              "value": "La solicitud quedó marcada para atención del responsable del hostel. Esta operación no envió ninguna notificación y no garantiza contacto ni plazo de respuesta.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        736,
+        176
+      ],
+      "id": "24cfe3f5-0693-448b-ace0-c98a4114fd0e",
+      "name": "Devolver resultado de derivación"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "7ea5486c-4e78-431b-b467-763ea8e5e800",
+              "name": "ok",
+              "value": false,
+              "type": "boolean"
+            },
+            {
+              "id": "83178011-1afa-4979-92a3-6c0e7acf74b0",
+              "name": "error",
+              "value": "accion_no_valida",
+              "type": "string"
+            },
+            {
+              "id": "5bcefd2e-9c4a-415f-bbb2-7f27a1941f30",
+              "name": "mensaje",
+              "value": "Acción no reconocida. Las acciones permitidas son: consultar, guardar_avance, completar y derivar_humano.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        240,
+        400
+      ],
+      "id": "d499c220-967f-46f6-a95d-b5d7e7fe1313",
+      "name": "Devolver acción no válida"
+    }
+  ],
+  "pinData": {
+    "Recibir accion y datos del agente": [
+      {
+        "json": {
+          "accion": "guardar_avance",
+          "session_id": "prueba_sin_solicitud_01",
+          "nombre": "",
+          "contacto": "ana@example.com",
+          "check_in": "2026-12-10",
+          "check_out": "2026-12-15",
+          "cantidad_personas": 2,
+          "tipo_habitacion": "privada",
+          "comentarios_extra": "",
+          "estado": "pendiente_revision",
+          "resumen_confirmado": true
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Recibir accion y datos del agente": {
+      "main": [
+        [
+          {
+            "node": "Consultar solicitud actual",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consultar solicitud actual": {
+      "main": [
+        [
+          {
+            "node": "¿Se solicita completar la solicitud?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar solicitud completa": {
+      "main": [
+        [
+          {
+            "node": "¿Solicitud valida?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar solicitud pendiente de revisión": {
+      "main": [
+        [
+          {
+            "node": "Devolver resultado de registro",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Solicitud valida?": {
+      "main": [
+        [
+          {
+            "node": "Guardar solicitud pendiente de revisión",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Devolver errores de validación",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Se solicita consultar?": {
+      "main": [
+        [
+          {
+            "node": "Devolver solicitud actual",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "¿Se solicita guardar avance?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Se solicita completar la solicitud?": {
+      "main": [
+        [
+          {
+            "node": "Validar solicitud completa",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "¿Se solicita consultar?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Se solicita guardar avance?": {
+      "main": [
+        [
+          {
+            "node": "Preparar avance de solicitud",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "¿Se solicita derivación humana?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar avance de solicitud": {
+      "main": [
+        [
+          {
+            "node": "Guardar avance de solicitud",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar avance de solicitud": {
+      "main": [
+        [
+          {
+            "node": "Devolver resultado de avance",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Se solicita derivación humana?": {
+      "main": [
+        [
+          {
+            "node": "Preparar derivación humana",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Devolver acción no válida",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar derivación humana": {
+      "main": [
+        [
+          {
+            "node": "Guardar derivación humana",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar derivación humana": {
+      "main": [
+        [
+          {
+            "node": "Devolver resultado de derivación",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "c8c22455-5b32-4a0d-a7b8-cbc4b5114e7c",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "25493e35a75ee24b5ddf652249b4fd8624ed00e5c8d2648e52b40aedc3ee5e53"
+  },
+  "nodeGroups": [],
+  "id": "dxHugMZ85E3jvUtQ",
+  "tags": []
+}
